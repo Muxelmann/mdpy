@@ -7,7 +7,8 @@ class Markdown:
     _re_heading = re.compile("^(#+)\s(.+)")
     _re_message = re.compile("^(!+)\s(.+)")
     _re_image = re.compile("^!\[([^\]]+)\]\(([^\)]+)\)")
-    _re_list_ul = re.compile("^([\s]*)\*\s(.*)")
+    _re_list_ul_1 = re.compile("^([\s]*)\*\s(.*)")
+    _re_list_ul_2 = re.compile("^([\s]*)-\s(.*)")
     _re_list_ol = re.compile("^([\s]*)[0-9]+\.\s(.*)")
 
     _re_no_paragraph = re.compile("^<(?:h[1-6]|pre|ul|ol|li|img|blockquote|div)")
@@ -18,6 +19,8 @@ class Markdown:
     _re_italic = re.compile("\*([^\*]+)\*")
     _re_bold = re.compile("\*\*([^\*]+)\*\*")
     _re_deleted = re.compile("~~([^~]+)~~")
+
+    _re_external = re.compile("^https?://")
 
     _lines = []
     _extracted = {}
@@ -33,6 +36,9 @@ class Markdown:
     @property
     def _list_depth(self) -> int:
         return len(self._list_type)
+
+    def __init__(self, base_url: str) -> None:
+        self._base_url = base_url
 
     def convert(self, text: str) -> str:
         text = self._make_tidy(text)
@@ -81,6 +87,7 @@ class Markdown:
                 line = self._message(line)
                 line = self._image(line)
 
+                line = self._is_more(line)
                 line = self._extract_code(line)
                 line = self._bold(line)
                 line = self._italic(line)
@@ -96,6 +103,11 @@ class Markdown:
 
         return "\n".join(self._lines)
 
+    def _is_more(self, line: str) -> str:
+        if line.lower() in ["===", "<!-- more --!>"]:
+            line = ""
+        return line
+
     def _blockquote(self, line: str) -> str:
         if not self._line_empty and line[:2] == "> ":
             if not self._in_blockquote:
@@ -110,10 +122,14 @@ class Markdown:
         return line
 
     def _list(self, line: str) -> str:
-        re_list = [self._re_list_ul, self._re_list_ol]
+        re_list = [
+            self._re_list_ol,
+            self._re_list_ul_1,
+            self._re_list_ul_2
+        ]
         while len(re_list) > 0:
             m = re_list.pop().search(line)
-            tag = "ol" if len(re_list) > 0 else "ul"
+            tag = "ul" if len(re_list) > 0 else "ol"
             if m:
                 # if self._last_line_empty:
                 if len(m.group(1)) // 4 + 1 > self._list_depth:
@@ -157,8 +173,11 @@ class Markdown:
     def _image(self, line: str) -> str:
         m = self._re_image.search(line)
         if m:
+            src = m.group(2)
+            if not self._re_external.search(src):
+                src = self._base_url + "/" + src
             line = "<img src=\"{src}\" alt=\"{alt}\">".format(
-                src = m.group(2),
+                src = src,
                 alt = m.group(1)
             )
         return line
