@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 import re
+from turtle import heading
 import yaml
 
 class Markdown:
 
     _re_heading = re.compile("^(#+)\s(.+)")
     _re_message = re.compile("^(!+)\s(.+)")
-    _re_image = re.compile("^!\[([^\]]+)\]\(([^\)]+)\)")
+    _re_image = re.compile("^!\[([^\]]+)\]\(([^\)\?]+)\??([^\)]*)\)")
     _re_list_ul_1 = re.compile("^([\s]*)\*\s(.*)")
     _re_list_ul_2 = re.compile("^([\s]*)-\s(.*)")
     _re_list_ol = re.compile("^([\s]*)[0-9]+\.\s(.*)")
@@ -37,7 +38,7 @@ class Markdown:
     def _list_depth(self) -> int:
         return len(self._list_type)
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str = "") -> None:
         self._base_url = base_url
 
     def convert(self, text: str) -> str:
@@ -174,11 +175,24 @@ class Markdown:
         m = self._re_image.search(line)
         if m:
             src = m.group(2)
-            if not self._re_external.search(src):
+            if self._base_url != "" and not self._re_external.search(src):
                 src = self._base_url + "/" + src
-            line = "<img src=\"{src}\" alt=\"{alt}\">".format(
+            
+            attributes = ["loading=\"lazy\""]
+            if m.group(3) != "":
+                for attribute in [a.split("=") for a in m.group(3).split("&")]:
+                    if attribute[0] == "resize":
+                        if "," in attribute[1]:
+                            width, height = attribute[1].split(",")
+                            attributes.append("height=\"{}\"".format(int(height)))
+                            attributes.append("width=\"{}\"".format(int(width)))
+                        else:
+                            attributes.append("height=\"{}\"".format(int(attribute[1])))
+
+            line = "<img src=\"{src}\" alt=\"{alt}\" {attributes}>".format(
                 src = src,
-                alt = m.group(1)
+                alt = m.group(1),
+                attributes = " ".join(attributes)
             )
         return line
 
@@ -290,8 +304,6 @@ if __name__ == "__main__":
     with open("sample.md", "r") as f:
         md = Markdown()
         html = md.convert(f.read())
-
-    
 
     with open("output.html", "w") as f:
         f.write(empty.replace("#### BODY ####", html))
