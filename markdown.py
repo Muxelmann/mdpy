@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import re
-from turtle import heading
 import yaml
 
 class Markdown:
@@ -23,32 +22,37 @@ class Markdown:
 
     _re_external = re.compile("^https?://")
 
-    _lines = []
-    _extracted = {}
-    _line_empty = False
-    @property
-    def _last_line_empty(self) -> bool:
-        return len(self._lines) == 0 or len(self._lines[-1]) == 0
-
-    _in_fence = False
-    _in_paragraph = False
-    _in_blockquote = False
-    _list_type = []
-    @property
-    def _list_depth(self) -> int:
-        return len(self._list_type)
 
     def __init__(self, base_url: str = "") -> None:
         self._base_url = base_url
 
-    def convert(self, text: str) -> str:
+    def convert(self, text: str):
+        self._reset()
+        
         text = self._make_tidy(text)
 
         text = self._metadata(text)
 
         text = self._parse(text)
 
-        return text
+        self.html = text
+
+    def _reset(self) -> None:
+        self._lines = []
+        self._extracted = {}
+        self._line_empty = False
+        self._in_fence = False
+        self._in_paragraph = False
+        self._in_blockquote = False
+        self._list_type = []
+
+    @property
+    def _last_line_empty(self) -> bool:
+        return len(self._lines) == 0 or len(self._lines[-1]) == 0
+
+    @property
+    def _list_depth(self) -> int:
+        return len(self._list_type)
 
     def _make_tidy(self, text: str) -> str:
         """
@@ -70,8 +74,9 @@ class Markdown:
     def _metadata(self, text: str) -> str:
         if text[:3] == "---":
             _, metadata, text = text.split("---", 2)
-
-        self.metadata = yaml.safe_load(metadata)
+            self.metadata = yaml.safe_load(metadata)
+        else:
+            self.metadata = []
 
         return text
 
@@ -85,7 +90,7 @@ class Markdown:
 
             if not self._in_fence:
                 line = self._heading(line)
-                line = self._message(line)
+                line = self._notices(line)
                 line = self._image(line)
 
                 line = self._is_more(line)
@@ -179,6 +184,7 @@ class Markdown:
                 src = self._base_url + "/" + src
             
             attributes = ["loading=\"lazy\""]
+            align = "align-center"
             if m.group(3) != "":
                 for attribute in [a.split("=") for a in m.group(3).split("&")]:
                     if attribute[0] == "resize":
@@ -188,27 +194,33 @@ class Markdown:
                             attributes.append("width=\"{}\"".format(int(width)))
                         else:
                             attributes.append("height=\"{}\"".format(int(attribute[1])))
+                    elif attribute[0] == "align":
+                        if attribute[1] in ["l", "L", "left", "Left"]:
+                            align = "align-left"
+                        elif attribute[1] in ["r", "R", "right", "Right"]:
+                            align = "align-right"
 
-            line = "<img src=\"{src}\" alt=\"{alt}\" {attributes}>".format(
+            line = "<figure class=\"{align}\"><img src=\"{src}\" alt=\"{alt}\" {attributes}></figure>".format(
                 src = src,
                 alt = m.group(1),
-                attributes = " ".join(attributes)
+                attributes = " ".join(attributes),
+                align = align
             )
         return line
 
-    def _message(self, line: str) -> str:
+    def _notices(self, line: str) -> str:
         m = self._re_message.search(line)
         if m:
-            classes = ["msg"]
+            classes = ["notices"]
             match len(m.group(1)):
                 case 1:
-                    classes.append("msg-warning")
+                    classes.append("yellow")
                 case 2:
-                    classes.append("msg-error")
+                    classes.append("red")
                 case 3:
-                    classes.append("msg-info")
+                    classes.append("blue")
                 case 4:
-                    classes.append("msg-success")
+                    classes.append("green")
             
             line = "<div class=\"{classes}\">{message}</div>".format(
                 classes = " ".join(classes),
@@ -284,27 +296,17 @@ class Markdown:
         return line
 
     def _fence(self, line: str) -> str:
-        if not self._line_empty and line[:3] == "```":
-            if not self._in_fence:
-                self._in_fence = True
-                line = "<pre><code class=\"language-{language}\">".format(
-                    language = line[3:].strip()
-                )
-            else:
-                self._in_fence = False
-                line = "</code></pre>"
+        if not self._line_empty:
+            if line[:3] == "```":
+                if not self._in_fence:
+                    self._in_fence = True
+                    line = "<pre><code class=\"language-{language}\">".format(
+                        language = line[3:].strip()
+                    )
+                else:
+                    self._in_fence = False
+                    line = "</code></pre>"
+            elif self._in_fence:
+                line = line.replace("<", "&lt;").replace(">", "&gt;")
         
         return line
-
-if __name__ == "__main__":
-
-    with open("empty.html", "r") as f:
-        empty = f.read()
-
-    with open("sample.md", "r") as f:
-        md = Markdown()
-        html = md.convert(f.read())
-
-    with open("output.html", "w") as f:
-        f.write(empty.replace("#### BODY ####", html))
-
