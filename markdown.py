@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import re
+import os
 import yaml
 
 class Markdown:
@@ -183,10 +184,11 @@ class Markdown:
             if self._base_url != "" and not self._re_external.search(src):
                 src = self._base_url + "/" + src
             
-            attributes = ["loading=\"lazy\""]
+            attributes = []
             align = "align-center"
             if m.group(3) != "":
                 for attribute in [a.split("=") for a in m.group(3).split("&")]:
+
                     if attribute[0] == "resize":
                         if "," in attribute[1]:
                             width, height = attribute[1].split(",")
@@ -194,18 +196,45 @@ class Markdown:
                             attributes.append("width=\"{}\"".format(int(width)))
                         else:
                             attributes.append("height=\"{}\"".format(int(attribute[1])))
+                    
                     elif attribute[0] == "align":
                         if attribute[1] in ["l", "L", "left", "Left"]:
                             align = "align-left"
                         elif attribute[1] in ["r", "R", "right", "Right"]:
                             align = "align-right"
+                    
+                    elif attribute[0] in ["autoplay", "controls", "loop", "muted"]:
+                        attributes.append(attribute[0])
+                    
+                    elif attribute[0] == "preload-poster":
+                        attributes.append("preload=\"none\"")
+                        if len(attribute) == 2:
+                            poster_src = attribute[1]
+                            if self._base_url != "" and not self._re_external.search(poster_src):
+                                poster_src = self._base_url + "/" + poster_src
+                            attributes.append("poster=\"{src}\"".format(
+                                src = poster_src
+                            ))
 
-            line = "<figure class=\"{align}\"><img src=\"{src}\" alt=\"{alt}\" {attributes}></figure>".format(
-                src = src,
-                alt = m.group(1),
-                attributes = " ".join(attributes),
-                align = align
-            )
+            ext = os.path.splitext(src)[1].lower()
+            if ext in [".png", ".jpg", ".gif", ".jpeg"]:
+                attributes.append("loading=\"lazy\"")
+                line = "<figure class=\"{align}\"><img src=\"{src}\" alt=\"{alt}\" {attributes}></figure>".format(
+                    src = src,
+                    alt = m.group(1),
+                    attributes = " ".join(attributes),
+                    align = align
+                )
+            elif ext in [".mp4", ".m4v"]:
+                if "autoplay" in attributes:
+                    attributes.append("playsinline")
+                line = "<figure class=\"{align}\"><video {attributes}><source src=\"{src}\" alt=\"{alt}\" type=\"video/{type}\"></video></figure>".format(
+                    src = src,
+                    type = ext[1:],
+                    alt = m.group(1),
+                    attributes = " ".join(attributes),
+                    align = align
+                )
         return line
 
     def _notices(self, line: str) -> str:
