@@ -6,7 +6,7 @@ class Markdown:
 
     _re_heading = re.compile("^(#+)\s(.+)")
     _re_message = re.compile("^(!+)\s(.+)")
-    _re_image = re.compile("^!\[([^\]]+)\]\(([^\)\?]+)\??([^\)]*)\)")
+    _re_media = re.compile("^!\[([^\]]+)\]\(([^\)\?]+)\??([^\)]*)\)")
     _re_list_ul_1 = re.compile("^([\s]*)\*\s(.*)")
     _re_list_ul_2 = re.compile("^([\s]*)-\s(.*)")
     _re_list_ol = re.compile("^([\s]*)[0-9]+\.\s(.*)")
@@ -91,7 +91,7 @@ class Markdown:
             if not self._in_fence:
                 line = self._heading(line)
                 line = self._notices(line)
-                line = self._image(line)
+                line = self._media(line)
 
                 line = self._is_more(line)
                 line = self._extract_code(line)
@@ -176,8 +176,8 @@ class Markdown:
                 )
         return line
 
-    def _image(self, line: str) -> str:
-        m = self._re_image.search(line)
+    def _media(self, line: str) -> str:
+        m = self._re_media.search(line)
         if m:
             src = m.group(2)
             if self._base_url != "" and not self._re_external.search(src):
