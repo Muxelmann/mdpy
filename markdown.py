@@ -306,9 +306,12 @@ class Markdown:
     def _link(self, line: str) -> str:
         m = self._re_link.search(line)
         while m:
+            href = m.group(2)
+            if self._base_url != "" and not self._re_external.search(href):
+                href = self._base_url + "/" + href
             line = line.replace(m.group(0), "<a href=\"{href}\">{content}</a>".format(
                 content = m.group(1),
-                href = m.group(2)
+                href = href
             ))
             m = self._re_link.search(line)
 
