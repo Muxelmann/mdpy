@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "mdpy"
+version = "0.0.1"
+description = "Simple Markdown converter."
+authors = ["Maximilian Zangs"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["PyYAML>=6"]
+# build-backend = "mdpy.core.masonry.api"

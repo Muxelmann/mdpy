@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             // "program": "${file}",
-            "program": "tests/test.py",
+            "program": "tests/test_conversion.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }
